@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>org.jboss.tools.vscode.tests</name>
+	<name>org.eclipse.jdt.ls.tests</name>
 	<comment></comment>
 	<projects>
 	</projects>
