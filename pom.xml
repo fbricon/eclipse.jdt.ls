@@ -84,7 +84,7 @@
 						<resolver>p2</resolver>
 						<target>
 							<artifact>
-								<groupId>org.jboss.tools.vscode.target-platform</groupId>
+								<groupId>org.eclipse.jdt.ls</groupId>
 								<artifactId>jdt_ls</artifactId>
 								<version>${project.version}</version>
 							</artifact>
