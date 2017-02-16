@@ -2,7 +2,7 @@
 	xmlns="http://maven.apache.org/POM/4.0.0" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>org.jboss.tools.vscode</groupId>
+	<groupId>org.eclipse.jdt.ls</groupId>
 	<artifactId>parent</artifactId>
 	<name>${base.name} :: Parent</name>
 	<version>0.1.0-SNAPSHOT</version>
@@ -20,9 +20,8 @@
 		<os.testArgs></os.testArgs>
 	</properties>
 	<modules>
-		<module>org.jboss.tools.vscode.java</module>
-		<module>org.jboss.tools.vscode.tests</module>
-		<module>org.jboss.tools.vscode.product</module>
+		<module>org.eclipse.jdt.ls.core</module>
+		<module>org.eclipse.jdt.ls.tests</module>
 		<module>target-platform</module>
 	</modules>
 	<build>
@@ -35,10 +34,7 @@
 					<configuration>
 						<watches>
 							<watch>
-								<directory>org.jboss.tools.vscode.java/src</directory>
-							</watch>
-							<watch>
-								<directory>org.jboss.tools.vscode.ipc/src</directory>
+								<directory>org.eclipse.jdt.ls.core/src</directory>
 							</watch>
 						</watches>
 						<goals>

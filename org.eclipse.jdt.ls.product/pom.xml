@@ -5,11 +5,11 @@
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
 		<version>0.1.0-SNAPSHOT</version>
-		<groupId>org.jboss.tools.vscode</groupId>
+		<groupId>org.eclipse.jdt.ls</groupId>
 		<artifactId>parent</artifactId>
 	</parent>
 
-	<artifactId>org.jboss.tools.vscode.product</artifactId>
+	<artifactId>org.eclipse.jdt.ls.product</artifactId>
 	<packaging>eclipse-repository</packaging>
 	<name>${base.name} :: Product</name>
 
