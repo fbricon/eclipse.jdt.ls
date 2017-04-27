@@ -39,6 +39,7 @@ import org.eclipse.jdt.ls.core.internal.managers.ContentProviderManager;
 import org.eclipse.jdt.ls.core.internal.managers.ProjectsManager;
 import org.eclipse.jdt.ls.core.internal.preferences.PreferenceManager;
 import org.eclipse.jdt.ls.core.internal.preferences.Preferences;
+import org.eclipse.jdt.ls.core.internal.telemetry.TelemetryEventFactory;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
@@ -61,6 +62,7 @@ import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
+import org.eclipse.lsp4j.InitializedParams;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.Registration;
@@ -129,6 +131,15 @@ public class JDTLanguageServer implements LanguageServer, TextDocumentService, W
 		logInfo(">> initialize");
 		InitHandler handler = new InitHandler(pm, preferenceManager, client);
 		return CompletableFuture.completedFuture(handler.initialize(params));
+	}
+
+	/* (non-Javadoc)
+	 * @see org.eclipse.lsp4j.services.LanguageServer#initialized(org.eclipse.lsp4j.InitializedParams)
+	 */
+	@Override
+	public void initialized(InitializedParams params) {
+		logInfo(">> initialized");
+		client.sendTelemetryEvent(TelemetryEventFactory.createStartupEvent());
 	}
 
 	/* (non-Javadoc)

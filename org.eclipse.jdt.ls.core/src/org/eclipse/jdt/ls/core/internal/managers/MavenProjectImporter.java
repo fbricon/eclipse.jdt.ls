@@ -182,4 +182,9 @@ public class MavenProjectImporter extends AbstractProjectImporter {
 		}.collectProjects(projects);
 	}
 
+	@Override
+	public String toString() {
+		return "Maven import";
+	}
+
 }

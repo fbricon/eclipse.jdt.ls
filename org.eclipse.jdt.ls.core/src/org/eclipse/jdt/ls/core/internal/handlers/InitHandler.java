@@ -122,8 +122,10 @@ final public class InitHandler {
 		}
 		capabilities.setCodeActionProvider(Boolean.TRUE);
 		result.setCapabilities(capabilities);
+
 		return result;
 	}
+
 
 	private void triggerInitialization(String root) {
 

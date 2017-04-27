@@ -46,6 +46,7 @@ import org.eclipse.jdt.ls.core.internal.ServiceStatus;
 import org.eclipse.jdt.ls.core.internal.StatusFactory;
 import org.eclipse.jdt.ls.core.internal.preferences.PreferenceManager;
 import org.eclipse.jdt.ls.core.internal.preferences.Preferences.FeatureStatus;
+import org.eclipse.jdt.ls.core.internal.telemetry.TelemetryEventFactory;
 import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
@@ -73,9 +74,9 @@ public class ProjectsManager {
 				IProjectImporter importer = getImporter(userProjectRoot, subMonitor.split(20));
 				if (importer != null) {
 					importer.importToWorkspace(subMonitor.split(70));
+					client.telemetryEvent(TelemetryEventFactory.createEvent("jdt.ls.import", "type", importer.toString()));
 				}
 			}
-
 			return Status.OK_STATUS;
 		} catch (InterruptedException e) {
 			JavaLanguageServerPlugin.logInfo("Import cancelled");

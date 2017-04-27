@@ -128,4 +128,8 @@ public class GradleProjectImporter extends AbstractProjectImporter {
 		}
 	}
 
+	@Override
+	public String toString() {
+		return "Gradle import";
+	}
 }
