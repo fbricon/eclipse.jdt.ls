@@ -459,14 +459,18 @@ public final class JDTUtils {
 			IClassFile classFile = (IClassFile) unit;
 			String contents = disassemble(classFile);
 			if (contents != null) {
+				System.err.println("contents :\n" + contents);
+
 				IDocument document = new Document(contents);
 				try {
 					offset = document.getLineOffset(line) + column;
+					System.err.println("offset " + offset);
 					if (offset > -1) {
 						String name = parse(contents, offset);
 						if (name == null) {
 							return null;
 						}
+						System.err.println("searching for  " + name);
 						SearchPattern pattern = SearchPattern.createPattern(name, IJavaSearchConstants.TYPE,
 								IJavaSearchConstants.DECLARATIONS, SearchPattern.R_FULL_MATCH);
 
@@ -477,6 +481,7 @@ public final class JDTUtils {
 							@Override
 							public void acceptSearchMatch(SearchMatch match) {
 								if (match.getElement() instanceof IJavaElement) {
+									System.err.println("matching " + match.getElement());
 									elements.add((IJavaElement) match.getElement());
 								}
 							}
