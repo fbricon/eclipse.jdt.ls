@@ -34,6 +34,7 @@ import org.eclipse.jdt.ls.core.internal.AbstractProjectImporter;
 import org.eclipse.jdt.ls.core.internal.JavaLanguageServerPlugin;
 import org.eclipse.jdt.ls.core.internal.ProjectUtils;
 import org.eclipse.jdt.ls.core.internal.preferences.PreferenceManager;
+import org.gradle.tooling.CancellationTokenSource;
 import org.gradle.tooling.GradleConnector;
 
 import com.gradleware.tooling.toolingclient.GradleDistribution;
@@ -86,11 +87,13 @@ public class GradleProjectImporter extends AbstractProjectImporter {
 		JavaLanguageServerPlugin.logInfo("Importing Gradle project(s)");
 		int projectSize = directories.size();
 		subMonitor.setWorkRemaining(projectSize);
-		directories.forEach(d -> importDir(d, monitor));
+		for (Path d : directories) {
+			importDir(d, monitor);
+		}
 		subMonitor.done();
 	}
 
-	private void importDir(Path rootFolder, IProgressMonitor monitor) {
+	private void importDir(Path rootFolder, IProgressMonitor monitor) throws CoreException {
 		if (monitor.isCanceled()) {
 			return;
 		}
@@ -130,7 +133,7 @@ public class GradleProjectImporter extends AbstractProjectImporter {
 		return null;
 	}
 
-	protected void startSynchronization(Path rootFolder, IProgressMonitor monitor) {
+	protected void startSynchronization(Path rootFolder, IProgressMonitor monitor) throws CoreException {
 		File location = rootFolder.toFile();
 		boolean shouldSynchronize = shouldSynchronize(location);
 		List<IProject> projects = ProjectUtils.getGradleProjects();
@@ -147,8 +150,9 @@ public class GradleProjectImporter extends AbstractProjectImporter {
 			GradleDistribution distribution = getGradleDistribution(rootFolder);
 			BuildConfiguration configuration = CorePlugin.configurationManager().createBuildConfiguration(location, overrideWorkspaceSettings, distribution, null, false, false, false);
 			GradleBuild build = CorePlugin.gradleWorkspaceManager().getGradleBuild(configuration);
-			build.getModelProvider().fetchEclipseGradleProjects(FetchStrategy.LOAD_IF_NOT_CACHED, GradleConnector.newCancellationTokenSource().token(), monitor);
-			build.synchronize(NewProjectHandler.IMPORT_AND_MERGE);
+			CancellationTokenSource cancellationTokenSource = GradleConnector.newCancellationTokenSource();//FIXME this does not actually propagate cancellation from outer Job
+			build.getModelProvider().fetchEclipseGradleProjects(FetchStrategy.LOAD_IF_NOT_CACHED, cancellationTokenSource, monitor);
+			build.synchronize(NewProjectHandler.IMPORT_AND_MERGE, cancellationTokenSource, monitor);
 		}
 	}
 
