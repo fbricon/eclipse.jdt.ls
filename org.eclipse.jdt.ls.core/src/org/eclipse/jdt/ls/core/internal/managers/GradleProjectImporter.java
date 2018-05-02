@@ -22,8 +22,8 @@ import java.util.Properties;
 import org.eclipse.buildship.core.CorePlugin;
 import org.eclipse.buildship.core.configuration.BuildConfiguration;
 import org.eclipse.buildship.core.preferences.PersistentModel;
-import org.eclipse.buildship.core.util.gradle.GradleDistributionWrapper;
-import org.eclipse.buildship.core.util.gradle.GradleDistributionWrapper.DistributionType;
+import org.eclipse.buildship.core.util.gradle.GradleDistribution;
+import org.eclipse.buildship.core.util.gradle.GradleVersion;
 import org.eclipse.buildship.core.workspace.GradleBuild;
 import org.eclipse.buildship.core.workspace.NewProjectHandler;
 import org.eclipse.core.resources.IProject;
@@ -36,9 +36,6 @@ import org.eclipse.jdt.ls.core.internal.ProjectUtils;
 import org.eclipse.jdt.ls.core.internal.preferences.PreferenceManager;
 import org.gradle.tooling.GradleConnector;
 
-import com.gradleware.tooling.toolingclient.GradleDistribution;
-import com.gradleware.tooling.toolingmodel.repository.FetchStrategy;
-
 /**
  * @author Fred Bricon
  *
@@ -49,7 +46,7 @@ public class GradleProjectImporter extends AbstractProjectImporter {
 
 	private static final String BUILD_GRADLE_DESCRIPTOR = "build.gradle";
 
-	protected static final GradleDistribution DEFAULT_DISTRIBUTION = GradleDistribution.fromBuild();
+	protected static final GradleDistribution DEFAULT_DISTRIBUTION = GradleDistribution.forVersion(GradleVersion.current().getVersion());
 
 	public static final String IMPORTING_GRADLE_PROJECTS = "Importing Gradle project(s)";
 
@@ -88,11 +85,13 @@ public class GradleProjectImporter extends AbstractProjectImporter {
 		SubMonitor subMonitor = SubMonitor.convert(monitor, projectSize);
 		subMonitor.setTaskName(IMPORTING_GRADLE_PROJECTS);
 		JavaLanguageServerPlugin.logInfo(IMPORTING_GRADLE_PROJECTS);
-		directories.forEach(d -> importDir(d, subMonitor.newChild(1)));
+		for (Path d : directories) {
+			importDir(d, subMonitor.newChild(1));
+		}
 		subMonitor.done();
 	}
 
-	private void importDir(Path rootFolder, IProgressMonitor monitor) {
+	private void importDir(Path rootFolder, IProgressMonitor monitor) throws CoreException {
 		if (monitor.isCanceled()) {
 			return;
 		}
@@ -102,7 +101,7 @@ public class GradleProjectImporter extends AbstractProjectImporter {
 	public static GradleDistribution getGradleDistribution(Path rootFolder) {
 		GradleDistribution distribution = DEFAULT_DISTRIBUTION;
 		if (Files.exists(rootFolder.resolve("gradlew"))) {
-			distribution = GradleDistributionWrapper.from(DistributionType.WRAPPER, null).toGradleDistribution();
+			distribution = GradleDistribution.fromBuild();
 		} else {
 			File gradleHomeFile = getGradleHomeFile();
 			if (gradleHomeFile != null) {
@@ -132,7 +131,7 @@ public class GradleProjectImporter extends AbstractProjectImporter {
 		return null;
 	}
 
-	protected void startSynchronization(Path rootFolder, IProgressMonitor monitor) {
+	protected void startSynchronization(Path rootFolder, IProgressMonitor monitor) throws CoreException {
 		File location = rootFolder.toFile();
 		boolean shouldSynchronize = shouldSynchronize(location);
 		List<IProject> projects = ProjectUtils.getGradleProjects();
@@ -149,8 +148,8 @@ public class GradleProjectImporter extends AbstractProjectImporter {
 			GradleDistribution distribution = getGradleDistribution(rootFolder);
 			BuildConfiguration configuration = CorePlugin.configurationManager().createBuildConfiguration(location, overrideWorkspaceSettings, distribution, null, false, false, false);
 			GradleBuild build = CorePlugin.gradleWorkspaceManager().getGradleBuild(configuration);
-			build.getModelProvider().fetchEclipseGradleProjects(FetchStrategy.LOAD_IF_NOT_CACHED, GradleConnector.newCancellationTokenSource().token(), monitor);
-			build.synchronize(NewProjectHandler.IMPORT_AND_MERGE);
+			//build.getModelProvider().fetchEclipseGradleProjects(FetchStrategy.LOAD_IF_NOT_CACHED, GradleConnector.newCancellationTokenSource(), monitor);
+			build.synchronize(NewProjectHandler.IMPORT_AND_MERGE, GradleConnector.newCancellationTokenSource(), monitor);
 		}
 	}
 

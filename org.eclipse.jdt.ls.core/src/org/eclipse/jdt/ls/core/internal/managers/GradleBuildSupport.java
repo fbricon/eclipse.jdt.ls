@@ -24,6 +24,7 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.ls.core.internal.JavaLanguageServerPlugin;
 import org.eclipse.jdt.ls.core.internal.ProjectUtils;
+import org.gradle.tooling.GradleConnector;
 
 import com.google.common.base.Optional;
 
@@ -48,7 +49,7 @@ public class GradleBuildSupport implements IBuildSupport {
 		JavaLanguageServerPlugin.logInfo("Starting Gradle update for "+project.getName());
 		Optional<GradleBuild> build = CorePlugin.gradleWorkspaceManager().getGradleBuild(project);
 		if (build.isPresent()){
-			build.get().synchronize(NewProjectHandler.IMPORT_AND_MERGE);
+			build.get().synchronize(NewProjectHandler.IMPORT_AND_MERGE, GradleConnector.newCancellationTokenSource(), monitor);
 		}
 	}
 
