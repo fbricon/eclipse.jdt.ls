@@ -51,7 +51,8 @@ import org.eclipse.m2e.core.internal.IMavenConstants;
 import org.eclipse.m2e.core.internal.Messages;
 
 /**
- * Listens to the resource change events and converts {@link IMarker}s to {@link Diagnostic}s.
+ * Listens to the resource change events and converts {@link IMarker}s to
+ * {@link Diagnostic}s.
  *
  * @author Gorkem Ercan
  *
@@ -113,7 +114,7 @@ public final class WorkspaceDiagnosticsHandler implements IResourceChangeListene
 			}
 			IProject project = (IProject) resource;
 			// report problems for other projects
-			IMarker[] markers = project.findMarkers(null, true, IResource.DEPTH_ONE);
+			IMarker[] markers = project.findMarkers(null, true, IResource.DEPTH_ZERO);
 			Range range = new Range(new Position(0, 0), new Position(0, 0));
 
 			List<IMarker> projectMarkers = new ArrayList<>(markers.length);
@@ -124,13 +125,12 @@ public final class WorkspaceDiagnosticsHandler implements IResourceChangeListene
 			if (pom.exists()) {
 				pomMarkers.addAll(Arrays.asList(pom.findMarkers(null, true, 1)));
 			}
-
 			for (IMarker marker : markers) {
 				if (!marker.exists() || CheckMissingNaturesListener.MARKER_TYPE.equals(marker.getType())) {
 					continue;
 				}
 				if (IMavenConstants.MARKER_CONFIGURATION_ID.equals(marker.getType())) {
-					pomMarkers.add(marker);
+					pomMarkers.add(new MarkerWrapper(pom, marker));
 				} else {
 					projectMarkers.add(marker);
 				}
@@ -140,8 +140,7 @@ public final class WorkspaceDiagnosticsHandler implements IResourceChangeListene
 			String clientUri = ResourceUtils.toClientUri(uri);
 			connection.publishDiagnostics(new PublishDiagnosticsParams(clientUri, diagnostics));
 			if (pom.exists()) {
-				diagnostics = toDiagnosticArray(range, pomMarkers);
-				connection.publishDiagnostics(new PublishDiagnosticsParams(ResourceUtils.toClientUri(clientUri + "/pom.xml"), diagnostics));
+				publishDiagnostics(pom, pomMarkers);
 			}
 			return true;
 		}
@@ -195,43 +194,44 @@ public final class WorkspaceDiagnosticsHandler implements IResourceChangeListene
 	private void publishDiagnostics(List<IMarker> markers) {
 		Map<IResource, List<IMarker>> map = markers.stream().collect(Collectors.groupingBy(IMarker::getResource));
 		for (Map.Entry<IResource, List<IMarker>> entry : map.entrySet()) {
-			IResource resource = entry.getKey();
-			// ignore problems caused by standalone files
-			if (JavaLanguageServerPlugin.getProjectsManager().getDefaultProject().equals(resource.getProject())) {
-				continue;
-			}
-			if (resource instanceof IProject) {
-				String uri = JDTUtils.getFileURI(resource);
-				Range range = new Range(new Position(0, 0), new Position(0, 0));
-				List<Diagnostic> diagnostics = WorkspaceDiagnosticsHandler.toDiagnosticArray(range, entry.getValue());
-				connection.publishDiagnostics(new PublishDiagnosticsParams(ResourceUtils.toClientUri(uri), diagnostics));
-				continue;
-			}
-			IFile file = resource.getAdapter(IFile.class);
-			if (file == null) {
-				continue;
-			}
-			IDocument document = null;
-			String uri = JDTUtils.getFileURI(resource);
-			if (JavaCore.isJavaLikeFileName(file.getName())) {
-				ICompilationUnit cu = JDTUtils.resolveCompilationUnit(uri);
-				try {
-					document = JsonRpcHelpers.toDocument(cu.getBuffer());
-				} catch (JavaModelException e) {
-					JavaLanguageServerPlugin.logException("Failed to publish diagnostics.", e);
-				}
-			} else if (projectsManager.isBuildFile(file)) {
-				document = JsonRpcHelpers.toDocument(file);
-			}
-
-			if (document != null) {
-				List<Diagnostic> diagnostics = WorkspaceDiagnosticsHandler.toDiagnosticsArray(document, entry.getValue().toArray(new IMarker[0]));
-				connection.publishDiagnostics(new PublishDiagnosticsParams(ResourceUtils.toClientUri(uri), diagnostics));
-			}
+			publishDiagnostics(entry.getKey(), entry.getValue());
 		}
 	}
 
+	private void publishDiagnostics(IResource resource, List<IMarker> markers) {
+		// ignore problems caused by standalone files
+		if (JavaLanguageServerPlugin.getProjectsManager().getDefaultProject().equals(resource.getProject())) {
+			return;
+		}
+		if (resource instanceof IProject) {
+			String uri = JDTUtils.getFileURI(resource);
+			Range range = new Range(new Position(0, 0), new Position(0, 0));
+			List<Diagnostic> diagnostics = toDiagnosticArray(range, markers);
+			connection.publishDiagnostics(new PublishDiagnosticsParams(ResourceUtils.toClientUri(uri), diagnostics));
+			return;
+		}
+		IFile file = resource.getAdapter(IFile.class);
+		if (file == null) {
+			return;
+		}
+		IDocument document = null;
+		String uri = JDTUtils.getFileURI(resource);
+		if (JavaCore.isJavaLikeFileName(file.getName())) {
+			ICompilationUnit cu = JDTUtils.resolveCompilationUnit(uri);
+			try {
+				document = JsonRpcHelpers.toDocument(cu.getBuffer());
+			} catch (JavaModelException e) {
+				JavaLanguageServerPlugin.logException("Failed to publish diagnostics.", e);
+			}
+		} else if (projectsManager.isBuildFile(file)) {
+			document = JsonRpcHelpers.toDocument(file);
+		}
 
+		if (document != null) {
+			List<Diagnostic> diagnostics = toDiagnosticsArray(document, markers.toArray(new IMarker[0]));
+			connection.publishDiagnostics(new PublishDiagnosticsParams(ResourceUtils.toClientUri(uri), diagnostics));
+		}
+	}
 
 	/**
 	 * Transforms {@link IMarker}s into a list of {@link Diagnostic}s
@@ -271,10 +271,7 @@ public final class WorkspaceDiagnosticsHandler implements IResourceChangeListene
 	 * @return a list of {@link Diagnostic}s
 	 */
 	public static List<Diagnostic> toDiagnosticsArray(IDocument document, IMarker[] markers) {
-		List<Diagnostic> diagnostics = Stream.of(markers)
-				.map(m -> toDiagnostic(document, m))
-				.filter(d -> d != null)
-				.collect(Collectors.toList());
+		List<Diagnostic> diagnostics = Stream.of(markers).map(m -> toDiagnostic(document, m)).filter(d -> d != null).collect(Collectors.toList());
 		return diagnostics;
 	}
 
@@ -282,13 +279,7 @@ public final class WorkspaceDiagnosticsHandler implements IResourceChangeListene
 		if (marker == null || !marker.exists()) {
 			return null;
 		}
-		Diagnostic d = new Diagnostic();
-		d.setSource(JavaLanguageServerPlugin.SERVER_SOURCE_ID);
-		d.setMessage(marker.getAttribute(IMarker.MESSAGE, ""));
-		d.setCode(String.valueOf(marker.getAttribute(IJavaModelMarker.ID, 0)));
-		d.setSeverity(convertSeverity(marker.getAttribute(IMarker.SEVERITY, -1)));
-		d.setRange(convertRange(document, marker));
-		return d;
+		return toDiagnostic(convertRange(document, marker), marker);
 	}
 
 	/**
@@ -336,5 +327,106 @@ public final class WorkspaceDiagnosticsHandler implements IResourceChangeListene
 			return DiagnosticSeverity.Warning;
 		}
 		return DiagnosticSeverity.Information;
+	}
+
+	static class MarkerWrapper implements IMarker {
+
+		private IMarker marker;
+		private IResource newResource;
+
+		MarkerWrapper(IResource newResource, IMarker originalMarker) {
+			this.newResource = newResource;
+			marker = originalMarker;
+
+		}
+
+		@Override
+		public <T> T getAdapter(Class<T> adapter) {
+			return marker.getAdapter(adapter);
+		}
+
+		@Override
+		public void setAttributes(String[] attributeNames, Object[] values) throws CoreException {
+		}
+
+		@Override
+		public void setAttributes(Map<String, ? extends Object> attributes) throws CoreException {
+		}
+
+		@Override
+		public void setAttribute(String attributeName, boolean value) throws CoreException {
+		}
+
+		@Override
+		public void setAttribute(String attributeName, Object value) throws CoreException {
+		}
+
+		@Override
+		public void setAttribute(String attributeName, int value) throws CoreException {
+		}
+
+		@Override
+		public boolean isSubtypeOf(String superType) throws CoreException {
+			return marker.isSubtypeOf(superType);
+		}
+
+		@Override
+		public String getType() throws CoreException {
+			return marker.getType();
+		}
+
+		@Override
+		public IResource getResource() {
+			return newResource;
+		}
+
+		@Override
+		public long getId() {
+			return marker.getId();
+		}
+
+		@Override
+		public long getCreationTime() throws CoreException {
+			return marker.getCreationTime();
+		}
+
+		@Override
+		public Object[] getAttributes(String[] attributeNames) throws CoreException {
+			return marker.getAttributes(attributeNames);
+		}
+
+		@Override
+		public Map<String, Object> getAttributes() throws CoreException {
+			return marker.getAttributes();
+		}
+
+		@Override
+		public boolean getAttribute(String attributeName, boolean defaultValue) {
+			return marker.getAttribute(attributeName, defaultValue);
+		}
+
+		@Override
+		public String getAttribute(String attributeName, String defaultValue) {
+			return marker.getAttribute(attributeName, defaultValue);
+		}
+
+		@Override
+		public int getAttribute(String attributeName, int defaultValue) {
+			return marker.getAttribute(attributeName, defaultValue);
+		}
+
+		@Override
+		public Object getAttribute(String attributeName) throws CoreException {
+			return marker.getAttribute(attributeName);
+		}
+
+		@Override
+		public boolean exists() {
+			return marker.exists();
+		}
+
+		@Override
+		public void delete() throws CoreException {
+		}
 	}
 }
