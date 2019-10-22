@@ -939,6 +939,32 @@ public class CompletionHandlerTest extends AbstractCompilationUnitBasedTest {
 	}
 
 	@Test
+	public void testSnippet_sysvar() throws JavaModelException {
+		//@formatter:off
+		ICompilationUnit unit = getWorkingCopy(
+			"src/org/sample/Test.java",
+			"package org.sample;\n" +
+			"public class Test {\n" +
+			"	public void testMethod() {\n" +
+			"       String foo = \"\";" +
+			"		sysvar" +
+			"	}\n" +
+			"}"
+		);
+		//@formatter:on
+		int[] loc = findCompletionLocation(unit, "sysvar");
+		CompletionList list = server.completion(JsonMessageHelper.getParams(createCompletionRequest(unit, loc[0], loc[1]))).join().getRight();
+
+		assertNotNull(list);
+
+		List<CompletionItem> items = new ArrayList<>(list.getItems());
+		CompletionItem item = items.get(0);
+		assertEquals("sysvar", item.getLabel());
+		String insertText = item.getInsertText();
+		assertEquals("System.out.println(\"${1:foo} = \" + foo${0});", insertText);
+	}
+
+	@Test
 	public void testSnippet_array_foreach() throws JavaModelException {
 		//@formatter:off
 		ICompilationUnit unit = getWorkingCopy(
