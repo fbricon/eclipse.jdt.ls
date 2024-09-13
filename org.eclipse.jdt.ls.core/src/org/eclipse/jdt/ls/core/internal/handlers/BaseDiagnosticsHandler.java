@@ -62,6 +62,10 @@ public abstract class BaseDiagnosticsHandler implements IProblemRequestor {
 	public static final int NON_PROJECT_JAVA_FILE = 0x10;
 	public static final int NOT_ON_CLASSPATH = 0x20;
 
+	public static final String DIAG_JAVAC_CODE = "javacCode";
+	public static final String DIAG_ECJ_PROBLEM_ID = "ecjProblemId";
+	public static final String DIAG_ARGUMENTS = "arguments";
+
 	public BaseDiagnosticsHandler(JavaClientConnection conn, ICompilationUnit cu) {
 		problems = new ArrayList<>();
 		this.cu = cu;
@@ -253,7 +257,7 @@ public abstract class BaseDiagnosticsHandler implements IProblemRequestor {
 			diag.setRange(convertRange(openable, problem));
 			Map<String, Object> data = new HashMap<>();
 			if (problem.getID() == IProblem.UndefinedName || problem.getID() == IProblem.UndefinedType || problem.getID() == IProblem.UninitializedBlankFinalField) {
-				data.put("arguments", problem.getArguments());
+				data.put(DIAG_ARGUMENTS, problem.getArguments());
 			}
 			if (isDiagnosticTagSupported) {
 				diag.setTags(getDiagnosticTag(problem.getID()));
@@ -264,9 +268,9 @@ public abstract class BaseDiagnosticsHandler implements IProblemRequestor {
 				if (extraAttributeNames != null && extraAttributeValues != null
 					&& extraAttributeNames.length == extraAttributeValues.length) {
 					for (int i = 0; i < extraAttributeNames.length; i++) {
-						if ("javacCode".equals(extraAttributeNames[i])) {
+						if (DIAG_JAVAC_CODE.equals(extraAttributeNames[i])) {
 							diag.setCode(String.valueOf(extraAttributeValues[i]));
-							data.put("ecjProblemId", Integer.toString(problem.getID()));
+							data.put(DIAG_ECJ_PROBLEM_ID, Integer.toString(problem.getID()));
 							break;
 						}
 					}

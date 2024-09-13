@@ -412,10 +412,10 @@ public final class WorkspaceDiagnosticsHandler implements IResourceChangeListene
 		}
 		d.setRange(range);
 		try {
-			if (marker.getAttribute("javacCode") != null) {
-				String javacCode = (String) marker.getAttribute("javacCode");
+			if (marker.getAttribute(BaseDiagnosticsHandler.DIAG_JAVAC_CODE) != null) {
+				String javacCode = (String) marker.getAttribute(BaseDiagnosticsHandler.DIAG_JAVAC_CODE);
 				Map<String, Object> data = new HashMap<>();
-				data.put("ecjProblemId", String.valueOf(problemId));
+				data.put(BaseDiagnosticsHandler.DIAG_ECJ_PROBLEM_ID, String.valueOf(problemId));
 				d.setCode(javacCode);
 				d.setData(data);
 			}
@@ -472,10 +472,10 @@ public final class WorkspaceDiagnosticsHandler implements IResourceChangeListene
 			d.setTags(DiagnosticsHandler.getDiagnosticTag(problemId));
 		}
 		try {
-			if (marker.getAttribute("javacCode") != null) {
-				String javacCode = (String) marker.getAttribute("javacCode");
+			if (marker.getAttribute(BaseDiagnosticsHandler.DIAG_JAVAC_CODE) != null) {
+				String javacCode = (String) marker.getAttribute(BaseDiagnosticsHandler.DIAG_JAVAC_CODE);
 				Map<String, Object> data = new HashMap<>();
-				data.put("ecjProblemId", String.valueOf(problemId));
+				data.put(BaseDiagnosticsHandler.DIAG_ECJ_PROBLEM_ID, String.valueOf(problemId));
 				d.setCode(javacCode);
 				d.setData(data);
 			}

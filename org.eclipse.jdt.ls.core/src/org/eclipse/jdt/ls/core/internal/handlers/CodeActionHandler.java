@@ -347,7 +347,7 @@ public class CodeActionHandler {
 			List<String> arguments = new ArrayList<>();
 			if (diagnostic.getData() != null) {
 				Map<String, Object> data = JSONUtility.toModel(diagnostic.getData(), Map.class);
-				Object args = data.get("arguments");
+				Object args = data.get(BaseDiagnosticsHandler.DIAG_ARGUMENTS);
 				if (args instanceof JsonArray args1) {
 					for (JsonElement e : args1) {
 						arguments.add(e.getAsString());
@@ -355,7 +355,7 @@ public class CodeActionHandler {
 				} else if (args instanceof String[] args1) {
 					arguments = Arrays.asList(args1);
 				}
-				Object ecjProblemId = data.get("ecjProblemId");
+				Object ecjProblemId = data.get(BaseDiagnosticsHandler.DIAG_ECJ_PROBLEM_ID);
 				if (ecjProblemId instanceof String id) {
 					problemId = Integer.valueOf(id);
 				}
