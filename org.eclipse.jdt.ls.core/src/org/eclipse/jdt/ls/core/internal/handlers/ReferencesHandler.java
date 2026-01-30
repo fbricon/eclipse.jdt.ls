@@ -46,15 +46,23 @@ import org.eclipse.jdt.ls.core.internal.JDTUtils;
 import org.eclipse.jdt.ls.core.internal.JavaLanguageServerPlugin;
 import org.eclipse.jdt.ls.core.internal.preferences.PreferenceManager;
 import org.eclipse.jdt.ls.core.internal.preferences.Preferences.SearchScope;
+import org.eclipse.jdt.ls.core.internal.JavaClientConnection.JavaLanguageClient;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.ReferenceParams;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 
 public final class ReferencesHandler {
 
 	private final PreferenceManager preferenceManager;
+	private final JavaLanguageClient client;
 
 	public ReferencesHandler(PreferenceManager preferenceManager) {
+		this(preferenceManager, null);
+	}
+
+	public ReferencesHandler(PreferenceManager preferenceManager, JavaLanguageClient client) {
 		this.preferenceManager = preferenceManager;
+		this.client = client;
 	}
 
 	private IJavaSearchScope createSearchScope(IJavaElement elementToSearch) throws JavaModelException {
@@ -68,7 +76,16 @@ public final class ReferencesHandler {
 	}
 
 	public List<Location> findReferences(ReferenceParams param, IProgressMonitor monitor) {
+		Either<String, Integer> partialResultToken = param.getPartialResultToken();
 		final List<Location> locations = new ArrayList<>();
+
+		// Create partial results reporter if token is provided and client is available
+		PartialResultsReporter<Location> reporter = null;
+		if (partialResultToken != null && client != null) {
+			JavaLanguageServerPlugin.logInfo("Creating partial results reporter with token: " + partialResultToken);
+			reporter = new PartialResultsReporter<>(partialResultToken, client, monitor);
+		}
+
 		ITypeRoot typeRoot = null;
 		try {
 			boolean returnCompilationUnit = preferenceManager == null ? false : preferenceManager.isClientSupportsClassFileContent() && (preferenceManager.getPreferences().isIncludeDecompiledSources());
@@ -84,21 +101,21 @@ public final class ReferencesHandler {
 			if (elementToSearch == null) {
 				return locations;
 			}
-			search(elementToSearch, locations, monitor, param.getContext().isIncludeDeclaration());
+			search(elementToSearch, locations, monitor, param.getContext().isIncludeDeclaration(), reporter);
 			if (monitor.isCanceled()) {
 				return Collections.emptyList();
 			}
 			if (preferenceManager.getPreferences().isIncludeAccessors() && elementToSearch instanceof IField field) { // IField
 				IMethod getter = GetterSetterUtil.getGetter(field);
 				if (getter != null) {
-					search(getter, locations, monitor, false);
+					search(getter, locations, monitor, false, reporter);
 				}
 				if (monitor.isCanceled()) {
 					return Collections.emptyList();
 				}
 				IMethod setter = GetterSetterUtil.getSetter(field);
 				if (setter != null) {
-					search(setter, locations, monitor, false);
+					search(setter, locations, monitor, false, reporter);
 				}
 				if (monitor.isCanceled()) {
 					return Collections.emptyList();
@@ -113,7 +130,7 @@ public final class ReferencesHandler {
 					for (IMethod method : builder.getMethods()) {
 						String[] parameters = method.getParameterTypes();
 						if (parameters.length == 1 && field.getElementName().equals(method.getElementName()) && fieldSignature.equals(parameters[0])) {
-							search(method, locations, monitor, false);
+							search(method, locations, monitor, false, reporter);
 						}
 					}
 				}
@@ -124,7 +141,19 @@ public final class ReferencesHandler {
 		} catch (CoreException e) {
 			JavaLanguageServerPlugin.logException("Find references failure ", e);
 		} finally {
+			// Ensure final results are sent if streaming was enabled
+			if (reporter != null) {
+				reporter.flush();
+				// If we had results, send an empty notification to signal completion (per LSP spec)
+				if (!locations.isEmpty()) {
+					reporter.sendEmptyCompletion();
+				}
+			}
 			JDTUtils.discardClassFileWorkingCopy(typeRoot);
+		}
+		// Per LSP spec: when using partial results, final response should be empty
+		if (reporter != null) {
+			return Collections.emptyList();
 		}
 		return locations;
 	}
@@ -173,6 +202,11 @@ public final class ReferencesHandler {
 
 	// for test purpose only
 	public void search(IJavaElement elementToSearch, final List<Location> locations, IProgressMonitor monitor, boolean isIncludeDeclaration) throws CoreException, JavaModelException {
+		search(elementToSearch, locations, monitor, isIncludeDeclaration, null);
+	}
+
+	// for test purpose only
+	public void search(IJavaElement elementToSearch, final List<Location> locations, IProgressMonitor monitor, boolean isIncludeDeclaration, PartialResultsReporter<Location> reporter) throws CoreException, JavaModelException {
 		boolean includeClassFiles = preferenceManager.isClientSupportsClassFileContent();
 		boolean includeDecompiledSources = preferenceManager.getPreferences().isIncludeDecompiledSources();
 		SearchEngine engine = new SearchEngine();
@@ -194,14 +228,25 @@ public final class ReferencesHandler {
 					if (compilationUnit != null) {
 						Location location = JDTUtils.toLocation(compilationUnit, match.getOffset(), match.getLength());
 						locations.add(location);
+						if (reporter != null) {
+							reporter.addResult(location);
+						}
 					} else if (includeClassFiles) {
 						IClassFile cf = (IClassFile) element.getAncestor(IJavaElement.CLASS_FILE);
 						if (cf != null && cf.getSourceRange() != null) {
 							Location location = JDTUtils.toLocation(cf, match.getOffset(), match.getLength());
 							locations.add(location);
+							if (reporter != null) {
+								reporter.addResult(location);
+							}
 						} else if (includeDecompiledSources && cf != null) {
 							List<Location> result = JDTUtils.searchDecompiledSources(element, cf, false, false, monitor);
 							locations.addAll(result);
+							if (reporter != null) {
+								for (Location loc : result) {
+									reporter.addResult(loc);
+								}
+							}
 						}
 					}
 

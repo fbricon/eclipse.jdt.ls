@@ -191,6 +191,7 @@ public class JDTLanguageServer extends BaseJDTLanguageServer implements Language
 	private TypeHierarchyHandler typeHierarchyHandler = new TypeHierarchyHandler();
 
 	private ProgressReporterManager progressReporterManager;
+	private JavaLanguageClient languageClient;
 	/**
 	 * The status of the language service
 	 */
@@ -250,6 +251,7 @@ public class JDTLanguageServer extends BaseJDTLanguageServer implements Language
 	@Override
 	public void connectClient(JavaLanguageClient client) {
 		super.connectClient(client);
+		this.languageClient = client;
 		progressReporterManager = new ProgressReporterManager(client, preferenceManager);
 		this.workingCopyOwner = new LanguageServerWorkingCopyOwner(this.client);
 		pm.setConnection(client);
@@ -720,7 +722,7 @@ public class JDTLanguageServer extends BaseJDTLanguageServer implements Language
 	@Override
 	public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
 		debugTrace(">> document/references");
-		ReferencesHandler handler = new ReferencesHandler(this.preferenceManager);
+		ReferencesHandler handler = new ReferencesHandler(this.preferenceManager, this.languageClient);
 		return computeAsync((monitor) -> handler.findReferences(params, monitor));
 	}
 
