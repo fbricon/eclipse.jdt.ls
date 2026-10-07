@@ -445,6 +445,37 @@ public class ResourceBundleCompletionTest extends AbstractCompilationUnitBasedTe
 	}
 
 	@Test
+	public void testResourceBundleCompletionNotProvidedInsideSecondArgument() throws Exception {
+		// Test that completion is NOT provided inside a string literal that is a second
+		// argument (getString only takes 1 parameter), even though it is itself a string literal.
+		ICompilationUnit unit = getWorkingCopy(
+				"src/org/sample/ResourceBundleTest.java",
+				"""
+				package org.sample;
+				import java.util.ResourceBundle;
+				public class ResourceBundleTest {
+				    private ResourceBundle bundle;
+				    public void test() {
+				        bundle = ResourceBundle.getBundle("resources.messages");
+				        String value = bundle.getString("greeting.hello", "greeting.");
+				    }
+				}
+				""");
+
+		// Request completion inside the second string literal argument
+		CompletionList list = requestCompletions(unit, "bundle.getString(\"greeting.hello\", \"greeting.");
+		assertNotNull(list, "Completion list should not be null");
+
+		// Filter for resource bundle key completions
+		List<CompletionItem> resourceBundleItems = list.getItems().stream()
+				.filter(item -> item.getKind() == CompletionItemKind.Property)
+				.collect(Collectors.toList());
+
+		// Should NOT provide resource bundle completions inside the second argument
+		assertTrue(resourceBundleItems.isEmpty(), "Should not provide resource bundle completions inside the second argument");
+	}
+
+	@Test
 	public void testResourceBundleCompletionNotProvidedAfterClosingParen() throws Exception {
 		// Test that completion is NOT provided after closing parenthesis
 		ICompilationUnit unit = getWorkingCopy(

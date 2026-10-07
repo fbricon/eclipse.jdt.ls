@@ -91,7 +91,7 @@ public class ResourceBundleContextDetector {
 			if (node instanceof StringLiteral) {
 				StringLiteral stringLiteral = (StringLiteral) node;
 				ASTNode parent = node.getParent();
-				if (parent instanceof MethodInvocation invocation) {
+				if (parent instanceof MethodInvocation invocation && isFirstArgument(invocation, stringLiteral)) {
 					BundleInfo bundleInfo = checkMethodInvocation(invocation, stringLiteral, offset);
 					return bundleInfo != null ? new ResourceBundleContext(bundleInfo.bundleName, invocation, bundleInfo.locale) : null;
 				}
@@ -103,15 +103,15 @@ public class ResourceBundleContextDetector {
 				return null;
 			}
 
-			// Check if any of the arguments is a StringLiteral containing the offset
+			// Check if the first argument is a StringLiteral containing the offset.
+			// getString() only takes a single parameter, so later arguments (even if they
+			// happen to be string literals, e.g. while typing) must not trigger completion.
 			@SuppressWarnings("unchecked")
 			java.util.List<Expression> arguments = enclosingInvocation.arguments();
-			for (Expression arg : arguments) {
-				if (arg instanceof StringLiteral stringLiteral) {
-					if (isInsideStringLiteral(offset, stringLiteral)) {
-						BundleInfo bundleInfo = checkMethodInvocation(enclosingInvocation, stringLiteral, offset);
-						return bundleInfo != null ? new ResourceBundleContext(bundleInfo.bundleName, enclosingInvocation, bundleInfo.locale) : null;
-					}
+			if (!arguments.isEmpty() && arguments.get(0) instanceof StringLiteral stringLiteral) {
+				if (isInsideStringLiteral(offset, stringLiteral)) {
+					BundleInfo bundleInfo = checkMethodInvocation(enclosingInvocation, stringLiteral, offset);
+					return bundleInfo != null ? new ResourceBundleContext(bundleInfo.bundleName, enclosingInvocation, bundleInfo.locale) : null;
 				}
 			}
 
@@ -127,6 +127,18 @@ public class ResourceBundleContextDetector {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Checks if the given string literal is the first argument of the invocation.
+	 * getString() only takes a single parameter, so a string literal in any other
+	 * argument position (e.g. a second argument typed while editing) must not be
+	 * treated as a resource bundle key.
+	 */
+	private boolean isFirstArgument(MethodInvocation invocation, StringLiteral stringLiteral) {
+		@SuppressWarnings("unchecked")
+		java.util.List<Expression> arguments = invocation.arguments();
+		return !arguments.isEmpty() && arguments.get(0) == stringLiteral;
 	}
 
 	/**
